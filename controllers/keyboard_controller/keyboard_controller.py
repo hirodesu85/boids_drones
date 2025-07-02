@@ -3,7 +3,6 @@ from controller import Robot
 from controller import Keyboard
 from math import cos, sin
 from pid_controller import pid_velocity_fixed_height_controller
-from wall_following import WallFollowing
 
 # 定数の定義
 FLYING_ATTITUDE = 1
@@ -36,14 +35,6 @@ if __name__ == "__main__":
     gyro.enable(timestep)
     camera = robot.getDevice("camera")
     camera.enable(timestep)
-    range_front = robot.getDevice("range_front")
-    range_front.enable(timestep)
-    range_left = robot.getDevice("range_left")
-    range_left.enable(timestep)
-    range_back = robot.getDevice("range_back")
-    range_back.enable(timestep)
-    range_right = robot.getDevice("range_right")
-    range_right.enable(timestep)
 
     # キーボード入力の初期化
     keyboard = Keyboard()
@@ -62,31 +53,19 @@ if __name__ == "__main__":
 
     height_desired = FLYING_ATTITUDE
 
-    wall_following = WallFollowing(
-        angle_value_buffer=0.01,
-        reference_distance_from_wall=0.5,
-        max_forward_speed=0.3,
-        init_state=WallFollowing.StateWallFollowing.FORWARD,
-    )
-
-    autonomous_mode = False
-
     # 説明文の出力
     print("\n")
-    print("====== Controls =======\n\n")
+    print("====== Controls =====\n\n")
     print(" The Crazyflie can be controlled from your keyboard!\n")
     print(" All controllable movement is in body coordinates\n")
     print("- Use the up, back, right and left button to move in the horizontal plane\n")
     print("- Use Q and E to rotate around yaw\n ")
     print("- Use W and S to go up and down\n ")
-    print("- Press A to start autonomous mode\n")
-    print("- Press D to disable autonomous mode\n")
 
     # メインループ
     while robot.step(timestep) != -1:
 
         dt = robot.getTime() - past_time
-        actual_state = {}
 
         # 初回のループだけ特別に処理
         if first_time:
@@ -138,43 +117,11 @@ if __name__ == "__main__":
                 height_diff_desired = 0.1
             elif key == ord("S"):
                 height_diff_desired = -0.1
-            elif key == ord("A"):
-                if autonomous_mode is False:
-                    autonomous_mode = True
-                    print("Autonomous mode: ON")
-            elif key == ord("D"):
-                if autonomous_mode is True:
-                    autonomous_mode = False
-                    print("Autonomous mode: OFF")
             key = keyboard.getKey()
 
         height_desired += height_diff_desired * dt
 
         camera_data = camera.getImage()
-
-        # ミリメートルからメートルへの変換
-        range_front_value = range_front.getValue() / 1000
-        range_right_value = range_right.getValue() / 1000
-        range_left_value = range_left.getValue() / 1000
-
-        # どっち周りで壁に追従するかを決定する
-        # if you choose direction left, use the right range value
-        # （左回りであれば、右側の壁との距離を測る）
-        # if you choose direction right, use the left range value
-        # （右回りであれば、左側の壁との距離を測る）
-        direction = WallFollowing.WallFollowingDirection.LEFT
-        range_side_value = range_right_value
-
-        # 壁追従アルゴリズムの実装
-        cmd_vel_x, cmd_vel_y, cmd_ang_w, state_wf = wall_following.wall_follower(
-            range_front_value, range_side_value, yaw, direction, robot.getTime()
-        )
-
-        # 壁追従モードならそれを設定
-        if autonomous_mode:
-            sideways_desired = cmd_vel_y
-            forward_desired = cmd_vel_x
-            yaw_desired = cmd_ang_w
 
         # PID制御
         motor_power = PID_crazyflie.pid(
