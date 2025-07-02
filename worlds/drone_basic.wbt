@@ -1,0 +1,27 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+
+WorldInfo {
+}
+Viewpoint {
+  orientation 0.08154803537804671 0.01652454572534705 -0.996532416589923 2.7430507944367832
+  position 1.4892166950732977 0.6077923744456637 0.44117549012571844
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+  size 30 30
+  appearance Parquetry {
+    type "light strip"
+  }
+}
+Crazyflie {
+  controller "keyboard_controller"
+}
