@@ -1,0 +1,49 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+
+WorldInfo {
+}
+Viewpoint {
+  orientation 0.26041767913687885 0.42393804025095416 -0.867444044547625 1.232341759416895
+  position -2.795391224520317 5.000833383470566 3.7041791644626976
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+  size 30 30
+  appearance Parquetry {
+    type "light strip"
+  }
+}
+Crazyflie {
+  translation 0 0 0.1
+  name "cf1"
+  controller "circular_flight_controller"
+}
+Crazyflie {
+  translation 0.2 0 0.1
+  name "cf2"
+  controller "circular_flight_controller"
+}
+Crazyflie {
+  translation 0.4 0 0.1
+  name "cf3"
+  controller "circular_flight_controller"
+}
+Crazyflie {
+  translation -0.2 -0.1 0.1
+  name "cf4"
+  controller "circular_flight_controller"
+}
+Crazyflie {
+  translation -0.4 -0.4 0.1
+  name "cf5"
+  controller "circular_flight_controller"
+}
