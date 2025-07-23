@@ -7,3 +7,8 @@ centralWidgetVisible: 1
 orthographicViewHeight: 1
 textFiles: -1
 consoles: Console:All:All
+renderingDevicePerspectives: drone1:camera;0;1;0;0
+renderingDevicePerspectives: drone2:camera;0;1;0;0
+renderingDevicePerspectives: drone3:camera;0;1;0;0
+renderingDevicePerspectives: drone4:camera;0;1;0;0
+renderingDevicePerspectives: drone5:camera;0;1;0;0

@@ -4,12 +4,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
 
 WorldInfo {
 }
 Viewpoint {
   orientation -0.18783205150676668 0.5984155093095032 0.7788568537572276 0.766201521388644
-  position -26.57669305602189 -18.955525813343932 13.29286961291869
+  position -29.883187690354703 -21.258143311530088 15.356348732832931
 }
 TexturedBackground {
 }
@@ -20,4 +21,89 @@ Floor {
   appearance Parquetry {
     type "light strip"
   }
+}
+Crazyflie {
+  translation 0 0 0.1
+  name "drone1"
+  controller "share_info_controller"
+  controllerArgs [
+    "1"
+  ]
+  extensionSlot [
+    Emitter {
+      range 10
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation 2 0 0.1
+  name "drone2"
+  controller "share_info_controller"
+  controllerArgs [
+    "2"
+  ]
+  extensionSlot [
+    Emitter {
+      range 10
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation -2 0 0.1
+  name "drone3"
+  controller "share_info_controller"
+  controllerArgs [
+    "3"
+  ]
+  extensionSlot [
+    Emitter {
+      range 10
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation 0 2 0.1
+  name "drone4"
+  controller "share_info_controller"
+  controllerArgs [
+    "4"
+  ]
+  extensionSlot [
+    Emitter {
+      range 10
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation 0 -2 0.1
+  name "drone5"
+  controller "share_info_controller"
+  controllerArgs [
+    "5"
+  ]
+  extensionSlot [
+    Emitter {
+      range 10
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
 }
