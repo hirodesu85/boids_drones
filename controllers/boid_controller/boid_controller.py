@@ -106,6 +106,11 @@ class BoidFlockingController:
         # Flight state
         self.takeoff_complete = False
         self.flight_mode = "takeoff"  # takeoff, hovering, flocking
+        
+        # Leader/Follower configuration
+        self.is_leader = (self.drone_id == 1)  # Drone 1 is the leader
+        self.wander_angle = 0.0  # Leader's exploration direction
+        self.wander_change_rate = 0.3  # How fast the direction changes
 
     def send_drone_state(self):
         """Send current drone state to other drones"""
@@ -258,6 +263,32 @@ class BoidFlockingController:
                 self.flight_mode = "flocking"
                 print(f"Drone {self.drone_id}: Starting flocking behavior")
 
+    def get_leader_velocity(self):
+        """Generate exploration behavior for the leader drone"""
+        # Randomly change direction gradually
+        self.wander_angle += np.random.uniform(-self.wander_change_rate, self.wander_change_rate)
+        
+        # Base speed for exploration
+        base_speed = 0.3
+        
+        # Calculate velocity vector
+        velocity = np.array([
+            np.cos(self.wander_angle) * base_speed,
+            np.sin(self.wander_angle) * base_speed
+        ])
+        
+        # Boundary avoidance - keep within field limits
+        position = self.gps.getValues()
+        boundary_limit = 15.0
+        
+        # Soft boundary repulsion
+        if abs(position[0]) > boundary_limit:
+            velocity[0] -= np.sign(position[0]) * 0.2
+        if abs(position[1]) > boundary_limit:
+            velocity[1] -= np.sign(position[1]) * 0.2
+            
+        return velocity
+
     def get_desired_velocity(self):
         """Get desired velocity based on current flight mode"""
         if self.flight_mode == "takeoff" or self.flight_mode == "hovering":
@@ -265,8 +296,12 @@ class BoidFlockingController:
             return np.array([0.0, 0.0])
             
         elif self.flight_mode == "flocking":
-            # Use boid algorithm
-            return self.get_boid_velocity()
+            if self.is_leader:
+                # Leader explores randomly
+                return self.get_leader_velocity()
+            else:
+                # Followers use boid algorithm
+                return self.get_boid_velocity()
             
         return np.array([0.0, 0.0])
 
