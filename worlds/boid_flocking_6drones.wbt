@@ -11,8 +11,8 @@ WorldInfo {
   basicTimeStep 16
 }
 Viewpoint {
-  orientation -0.2257700862834176 0.6804260318714703 0.6971716311577967 1.0447344696293153
-  position -6.7135026033283 -6.999942255446571 8.432245615856006
+  orientation -0.43679551078319345 -0.01998980498967273 0.8993386956292517 3.317891511471074
+  position 9.34130597585979 2.1729534803967923 10.288775069531138
   follow "drone1"
   followType "None"
 }
@@ -27,7 +27,7 @@ Floor {
   }
 }
 Crazyflie {
-  translation 0 3 0.015
+  translation 1.2 0.69 0.015
   name "drone1"
   controller "boid_controller"
   controllerArgs [
@@ -44,7 +44,7 @@ Crazyflie {
   ]
 }
 Crazyflie {
-  translation 2.6 1.5 0.015
+  translation -3.1 0.7 0.015
   name "drone2"
   controller "boid_controller"
   controllerArgs [
@@ -61,7 +61,7 @@ Crazyflie {
   ]
 }
 Crazyflie {
-  translation 2.6 -1.5 0.015
+  translation 0.37 -2.1 0.015
   name "drone3"
   controller "boid_controller"
   controllerArgs [
@@ -78,7 +78,7 @@ Crazyflie {
   ]
 }
 Crazyflie {
-  translation 0 -3 0.015
+  translation -0.8 -0.42 0.015
   name "drone4"
   controller "boid_controller"
   controllerArgs [
@@ -95,7 +95,7 @@ Crazyflie {
   ]
 }
 Crazyflie {
-  translation -2.6 -1.5 0.015
+  translation -2.2 3.2 0.015
   name "drone5"
   controller "boid_controller"
   controllerArgs [
@@ -112,7 +112,7 @@ Crazyflie {
   ]
 }
 Crazyflie {
-  translation -2.6 1.5 0.015
+  translation 3.5 1.1 0.015
   name "drone6"
   controller "boid_controller"
   controllerArgs [
