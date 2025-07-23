@@ -168,65 +168,65 @@ class BoidAlgorithm:
     def calculate_leader_attraction(self, my_position, neighbors):
         """
         Calculate attraction force towards the leader drone
-        
+
         Args:
             my_position: [x, y, z] current position
             neighbors: List of neighbor data
-            
+
         Returns:
             leader_force: [vx, vy] attraction force towards leader
         """
         leader = None
         for neighbor in neighbors:
-            if neighbor.get('drone_id') == 1:  # Find the leader (drone 1)
+            if neighbor.get("drone_id") == 1:  # Find the leader (drone 1)
                 leader = neighbor
                 break
-        
+
         if leader:
-            leader_pos = np.array([leader['x'], leader['y']])
+            leader_pos = np.array([leader["x"], leader["y"]])
             my_pos = np.array([my_position[0], my_position[1]])
-            
+
             # Direction to leader
             direction = leader_pos - my_pos
             distance = np.linalg.norm(direction)
-            
+
             if distance > 0:
                 direction = direction / distance
                 # Attraction force increases with distance, but caps at 0.3
                 force = direction * min(distance * 0.1, 0.3)
                 return force
-        
+
         return np.array([0.0, 0.0])
-    
+
     def combine_forces_with_leader(self, separation, alignment, cohesion, leader_attraction):
         """
         Combine the boid forces with leader attraction
-        
+
         Args:
             separation: [vx, vy] separation force
-            alignment: [vx, vy] alignment force  
+            alignment: [vx, vy] alignment force
             cohesion: [vx, vy] cohesion force
             leader_attraction: [vx, vy] leader attraction force
-            
+
         Returns:
             combined_force: [vx, vy] final desired velocity
         """
         # Apply weights to each force
         leader_weight = 0.5  # Weight for leader attraction
         total_force = (
-            separation * self.separation_weight + 
-            alignment * self.alignment_weight + 
-            cohesion * self.cohesion_weight +
-            leader_attraction * leader_weight
+            separation * self.separation_weight
+            + alignment * self.alignment_weight
+            + cohesion * self.cohesion_weight
+            + leader_attraction * leader_weight
         )
-        
+
         # Limit the magnitude of the resulting force
         magnitude = np.linalg.norm(total_force)
         if magnitude > self.max_speed:
             total_force = (total_force / magnitude) * self.max_speed
         elif magnitude < self.min_speed and magnitude > 0:
             total_force = (total_force / magnitude) * self.min_speed
-            
+
         return total_force
 
     def calculate_boid_velocity(self, my_position, my_velocity, neighbors):
@@ -245,14 +245,12 @@ class BoidAlgorithm:
         separation = self.calculate_separation(my_position, neighbors)
         alignment = self.calculate_alignment(my_velocity, neighbors)
         cohesion = self.calculate_cohesion(my_position, neighbors)
-        
+
         # Calculate leader attraction for followers
         leader_attraction = self.calculate_leader_attraction(my_position, neighbors)
 
         # Combine forces (including leader attraction)
-        desired_velocity = self.combine_forces_with_leader(
-            separation, alignment, cohesion, leader_attraction
-        )
+        desired_velocity = self.combine_forces_with_leader(separation, alignment, cohesion, leader_attraction)
 
         return desired_velocity
 
