@@ -1,0 +1,130 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+
+WorldInfo {
+  title "Boid Flocking with 6 Crazyflie Drones"
+  basicTimeStep 16
+}
+Viewpoint {
+  orientation -0.2257700862834176 0.6804260318714703 0.6971716311577967 1.0447344696293153
+  position -6.7135026033283 -6.999942255446571 8.432245615856006
+  follow "drone1"
+  followType "None"
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+  size 50 50
+  appearance Parquetry {
+    type "light strip"
+  }
+}
+Crazyflie {
+  translation 0 3 0.015
+  name "drone1"
+  controller "boid_controller"
+  controllerArgs [
+    "1"
+  ]
+  extensionSlot [
+    Emitter {
+      range 15
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation 2.6 1.5 0.015
+  name "drone2"
+  controller "boid_controller"
+  controllerArgs [
+    "2"
+  ]
+  extensionSlot [
+    Emitter {
+      range 15
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation 2.6 -1.5 0.015
+  name "drone3"
+  controller "boid_controller"
+  controllerArgs [
+    "3"
+  ]
+  extensionSlot [
+    Emitter {
+      range 15
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation 0 -3 0.015
+  name "drone4"
+  controller "boid_controller"
+  controllerArgs [
+    "4"
+  ]
+  extensionSlot [
+    Emitter {
+      range 15
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation -2.6 -1.5 0.015
+  name "drone5"
+  controller "boid_controller"
+  controllerArgs [
+    "5"
+  ]
+  extensionSlot [
+    Emitter {
+      range 15
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
+Crazyflie {
+  translation -2.6 1.5 0.015
+  name "drone6"
+  controller "boid_controller"
+  controllerArgs [
+    "6"
+  ]
+  extensionSlot [
+    Emitter {
+      range 15
+      channel 1
+    }
+    Receiver {
+      channel 1
+    }
+  ]
+}
