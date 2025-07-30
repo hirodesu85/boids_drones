@@ -11,8 +11,8 @@ WorldInfo {
   basicTimeStep 16
 }
 Viewpoint {
-  orientation -0.2916025864713225 -0.06816438409882761 0.9541077236369395 3.723607328353592
-  position 9.290029496127483 7.202682733998721 6.604290733801951
+  orientation 0.13358262222109116 0.13171047287182572 -0.9822464224299405 1.2146989260355427
+  position -6.134302724797874 12.77239320037904 1.6677611049914787
   follow "drone1"
   followType "None"
 }
@@ -30,7 +30,7 @@ Floor {
 Crazyflie {
   translation 1.2 0.69 0.015
   name "drone1"
-  controller "boid_controller"
+  controller "keyboard_controller"
   controllerArgs [
     "1"
   ]
