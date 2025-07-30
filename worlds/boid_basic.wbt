@@ -1,6 +1,5 @@
 #VRML_SIM R2025a utf8
 
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
@@ -10,12 +9,10 @@ WorldInfo {
   basicTimeStep 16
 }
 Viewpoint {
-  orientation 0.09436666528575771 0.02910671376453414 -0.9951119191812925 2.0570052527984766
-  position 7.88962115205223 19.045097462013842 1.3202611361330066
+  orientation 0.09754889948334637 0.0043780887438189696 -0.9952211033476628 2.614669427690398
+  position 15.848679892331095 12.649393092486857 2.716577795217025
   follow "drone1"
   followType "None"
-}
-TexturedBackground {
 }
 TexturedBackgroundLight {
 }
@@ -23,7 +20,7 @@ Floor {
   size 100 100
   appearance Appearance {
     material Material {
-      diffuseColor 0.5 0.5 0.5
+      diffuseColor 0.196857 0.194568 0.199145
     }
   }
 }
@@ -35,6 +32,23 @@ Crazyflie {
     "1"
   ]
   extensionSlot [
+    Transform {
+      translation 0 0 0.03
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 1 0 0
+              emissiveColor 0.3 0 0
+            }
+          }
+          geometry Cylinder {
+            height 0.005
+            radius 0.025
+          }
+        }
+      ]
+    }
     Emitter {
       range 15
       channel 1
@@ -52,6 +66,23 @@ Crazyflie {
     "2"
   ]
   extensionSlot [
+    Transform {
+      translation 0 0 0.03
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0 0 1
+              emissiveColor 0 0 0.3
+            }
+          }
+          geometry Cylinder {
+            height 0.005
+            radius 0.025
+          }
+        }
+      ]
+    }
     Emitter {
       range 15
       channel 1
@@ -69,6 +100,23 @@ Crazyflie {
     "3"
   ]
   extensionSlot [
+    Transform {
+      translation 0 0 0.03
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0 0 1
+              emissiveColor 0 0 0.3
+            }
+          }
+          geometry Cylinder {
+            height 0.005
+            radius 0.025
+          }
+        }
+      ]
+    }
     Emitter {
       range 15
       channel 1
@@ -86,6 +134,23 @@ Crazyflie {
     "4"
   ]
   extensionSlot [
+    Transform {
+      translation 0 0 0.03
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0 0 1
+              emissiveColor 0 0 0.3
+            }
+          }
+          geometry Cylinder {
+            height 0.005
+            radius 0.025
+          }
+        }
+      ]
+    }
     Emitter {
       range 15
       channel 1
@@ -103,6 +168,23 @@ Crazyflie {
     "5"
   ]
   extensionSlot [
+    Transform {
+      translation 0 0 0.03
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0 0 1
+              emissiveColor 0 0 0.3
+            }
+          }
+          geometry Cylinder {
+            height 0.005
+            radius 0.025
+          }
+        }
+      ]
+    }
     Emitter {
       range 15
       channel 1
@@ -120,6 +202,23 @@ Crazyflie {
     "6"
   ]
   extensionSlot [
+    Transform {
+      translation 0 0 0.03
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0 0 1
+              emissiveColor 0 0 0.3
+            }
+          }
+          geometry Cylinder {
+            height 0.005
+            radius 0.025
+          }
+        }
+      ]
+    }
     Emitter {
       range 15
       channel 1
