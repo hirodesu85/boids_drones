@@ -2,17 +2,16 @@
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Parquetry.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
 
 WorldInfo {
   title "Boid Flocking with 6 Crazyflie Drones"
   basicTimeStep 16
 }
 Viewpoint {
-  orientation 0.13358262222109116 0.13171047287182572 -0.9822464224299405 1.2146989260355427
-  position -6.134302724797874 12.77239320037904 1.6677611049914787
+  orientation 0.09436666528575771 0.02910671376453414 -0.9951119191812925 2.0570052527984766
+  position 7.88962115205223 19.045097462013842 1.3202611361330066
   follow "drone1"
   followType "None"
 }
@@ -21,10 +20,11 @@ TexturedBackground {
 TexturedBackgroundLight {
 }
 Floor {
-  size 50 50
-  appearance Parquetry {
-    type "light strip"
-    colorOverride 0.439475 1 0.131029
+  size 100 100
+  appearance Appearance {
+    material Material {
+      diffuseColor 0.5 0.5 0.5
+    }
   }
 }
 Crazyflie {
