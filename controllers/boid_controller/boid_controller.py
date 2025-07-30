@@ -39,7 +39,7 @@ class BoidFlockingController:
         self.boid_algorithm = BoidAlgorithm()
 
         # 状態変数
-        self.past_time = self.robot.getTime()
+        self.past_time = 0.0
         self.past_position = np.zeros(3)
         self.current_velocity = np.zeros(3)
 
@@ -64,14 +64,24 @@ class BoidFlockingController:
 
     def run(self):
         """メイン制御ループ"""
-        while self.robot.step(TIME_STEP) != -1 and self.robot.getTime() < 0.5:
-            pass
-        self.past_position = self.gps.getValues()
+        # センサーの初期化を待つ
+        print(f"Drone {self.drone_id}: Initializing sensors...")
+        init_steps = 0
+        while self.robot.step(TIME_STEP) != -1 and init_steps < 10:
+            init_steps += 1
+
+        # 初期値を設定
+        self.past_position = np.array(self.gps.getValues())
         self.past_time = self.robot.getTime()
 
+        print(f"Drone {self.drone_id}: Starting control loop...")
+
         while self.robot.step(TIME_STEP) != -1:
-            dt = self.robot.getTime() - self.past_time
-            if dt <= 0:
+            current_time = self.robot.getTime()
+            dt = current_time - self.past_time
+
+            # dtが小さすぎる場合はスキップ
+            if dt < 0.001:
                 continue
 
             current_pos = np.array(self.gps.getValues())
@@ -108,19 +118,37 @@ class BoidFlockingController:
             # PID制御
             roll, pitch, _ = self.imu.getRollPitchYaw()
             yaw_rate = self.gyro.getValues()[2]
-            motor_power = self.pid_controller.pid(
-                dt,
-                desired_vx,
-                desired_vy,
-                0,
-                self.desired_altitude,
-                roll,
-                pitch,
-                yaw_rate,
-                current_pos[2],
-                self.current_velocity[0],
-                self.current_velocity[1],
-            )
+
+            # NaN/Inf チェック
+            if any(np.isnan([roll, pitch, yaw_rate, current_pos[2], desired_vx, desired_vy])) or any(
+                np.isinf([roll, pitch, yaw_rate, current_pos[2], desired_vx, desired_vy])
+            ):
+                print(f"Drone {self.drone_id}: Warning - Invalid sensor values detected, skipping")
+                continue
+
+            try:
+                motor_power = self.pid_controller.pid(
+                    dt,
+                    desired_vx,
+                    desired_vy,
+                    0,
+                    self.desired_altitude,
+                    roll,
+                    pitch,
+                    yaw_rate,
+                    current_pos[2],
+                    self.current_velocity[0],
+                    self.current_velocity[1],
+                )
+
+                # モーター出力の妥当性チェック
+                if any(np.isnan(motor_power)) or any(np.isinf(motor_power)):
+                    print(f"Drone {self.drone_id}: Warning - Invalid motor power calculated, using safe values")
+                    motor_power = [48, 48, 48, 48]  # 安全なホバリング値
+
+            except Exception as e:
+                print(f"Drone {self.drone_id}: Error in PID calculation: {e}")
+                motor_power = [48, 48, 48, 48]  # 安全なホバリング値
 
             # モーター出力
             self.motors[0].setVelocity(-motor_power[0])
@@ -128,12 +156,15 @@ class BoidFlockingController:
             self.motors[2].setVelocity(-motor_power[2])
             self.motors[3].setVelocity(motor_power[3])
 
-            self.past_time = self.robot.getTime()
+            self.past_time = current_time
             self.past_position = current_pos
 
-    # (以降の補助関数は変更なし)
     def _update_velocity(self, current_pos, dt):
-        self.current_velocity = (current_pos - self.past_position) / dt
+        """速度の更新（dtチェック付き）"""
+        if dt > 0:
+            self.current_velocity = (current_pos - self.past_position) / dt
+        else:
+            self.current_velocity = np.zeros(3)
 
     def _update_flight_mode(self, altitude):
         if self.flight_mode == "takeoff" and altitude >= INITIAL_HOVER_ALTITUDE - 0.1:
@@ -145,12 +176,12 @@ class BoidFlockingController:
             return
         message = {
             "drone_id": self.drone_id,
-            "x": pos[0],
-            "y": pos[1],
-            "z": pos[2],
-            "vx": self.current_velocity[0],
-            "vy": self.current_velocity[1],
-            "vz": self.current_velocity[2],
+            "x": float(pos[0]),
+            "y": float(pos[1]),
+            "z": float(pos[2]),
+            "vx": float(self.current_velocity[0]),
+            "vy": float(self.current_velocity[1]),
+            "vz": float(self.current_velocity[2]),
         }
         if self.emitter:
             try:
