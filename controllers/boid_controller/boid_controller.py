@@ -1,408 +1,208 @@
 # -*- coding: utf-8 -*-
 """
-Boid Flocking Controller for Crazyflie Drones
-
-This controller implements boid algorithm for autonomous flocking behavior
-with communication between drones using emitter/receiver.
+Boid Flocking Controller for Crazyflie Drones (3D Version - Stabilized)
 """
 
 import sys
 import json
-import time
 import numpy as np
 from controller import Robot
 from pid_controller import pid_velocity_fixed_height_controller
 from boid_algorithm import BoidAlgorithm
 
-# Simulation configuration
+# --- 設定 ---
 TIME_STEP = 16
-HOVER_ALTITUDE = 1.0
-TAKEOFF_SPEED = 0.3
+INITIAL_HOVER_ALTITUDE = 1.0  # 初期離陸高度
+MINIMUM_ALTITUDE = 0.8  # 安全のための最低高度
+MAXIMUM_ALTITUDE = 2.0  # 探索範囲の最高高度
 
 
 class BoidFlockingController:
     def __init__(self):
         self.robot = Robot()
+        self.drone_id = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+        print(f"=== Drone {self.drone_id} Starting 3D Boid Flocking (Stabilized) ===")
 
-        # Get drone ID from command line arguments
-        if len(sys.argv) > 1:
-            self.drone_id = int(sys.argv[1])
-        else:
-            self.drone_id = 1
-
-        print(f"=== Drone {self.drone_id} Starting Boid Flocking ===")
-
-        # Initialize motors for quadcopter
-        self.m1_motor = self.robot.getDevice("m1_motor")
-        self.m1_motor.setPosition(float("inf"))
-        self.m1_motor.setVelocity(-1)
-
-        self.m2_motor = self.robot.getDevice("m2_motor")
-        self.m2_motor.setPosition(float("inf"))
-        self.m2_motor.setVelocity(1)
-
-        self.m3_motor = self.robot.getDevice("m3_motor")
-        self.m3_motor.setPosition(float("inf"))
-        self.m3_motor.setVelocity(-1)
-
-        self.m4_motor = self.robot.getDevice("m4_motor")
-        self.m4_motor.setPosition(float("inf"))
-        self.m4_motor.setVelocity(1)
-
-        # Initialize sensors
-        self.imu = self.robot.getDevice("inertial_unit")
-        self.imu.enable(TIME_STEP)
-
+        # モーターとセンサーの初期化
+        self.motors = self._init_motors()
         self.gps = self.robot.getDevice("gps")
         self.gps.enable(TIME_STEP)
-
+        self.imu = self.robot.getDevice("inertial_unit")
+        self.imu.enable(TIME_STEP)
         self.gyro = self.robot.getDevice("gyro")
         self.gyro.enable(TIME_STEP)
 
-        # Initialize communication devices
-        try:
-            self.emitter = self.robot.getDevice("emitter")
-            if self.emitter is None:
-                print(f"Drone {self.drone_id}: ERROR - Emitter device not found!")
-            else:
-                pass  # Emitter initialized successfully
-        except Exception as e:
-            print(f"Drone {self.drone_id}: ERROR initializing emitter: {e}")
-            self.emitter = None
+        # 通信の初期化
+        self.emitter = self.robot.getDevice("emitter")
+        self.receiver = self.robot.getDevice("receiver")
+        if self.receiver:
+            self.receiver.enable(TIME_STEP)
 
-        try:
-            self.receiver = self.robot.getDevice("receiver")
-            if self.receiver is None:
-                print(f"Drone {self.drone_id}: ERROR - Receiver device not found!")
-            else:
-                self.receiver.enable(TIME_STEP)
-        except Exception as e:
-            print(f"Drone {self.drone_id}: ERROR initializing receiver: {e}")
-            self.receiver = None
-
-        # Initialize control systems
+        # 制御システムの初期化
         self.pid_controller = pid_velocity_fixed_height_controller()
         self.boid_algorithm = BoidAlgorithm()
 
-        # State variables
+        # 状態変数
         self.past_time = self.robot.getTime()
-        self.past_x_global = 0.0
-        self.past_y_global = 0.0
-        self.current_velocity = np.array([0.0, 0.0])
+        self.past_position = np.zeros(3)
+        self.current_velocity = np.zeros(3)
 
-        # Low-pass filter for velocity (smoothing)
-        self.velocity_filter_alpha = 0.7  # 0.7 = 70% current, 30% past
-        self.filtered_velocity = np.array([0.0, 0.0])
-
-        # Acceleration limiting
-        self.max_acceleration = 0.5  # m/s^2
-        self.last_desired_velocity = np.array([0.0, 0.0])
-
-        # Communication variables
+        # 通信変数
+        self.neighbors = {}
         self.last_send_time = 0.0
-        self.send_interval = 0.1  # Send data every 100ms for better responsiveness
-        self.neighbors = {}  # Dictionary to store neighbor information
-        self.neighbor_timeout = 1.0  # Remove neighbors not heard from in 1 second
 
-        # Flight state
-        self.takeoff_complete = False
-        self.flight_mode = "takeoff"  # takeoff, hovering, flocking
+        # 飛行状態
+        self.flight_mode = "takeoff"
+        self.desired_altitude = INITIAL_HOVER_ALTITUDE
 
-        # Leader/Follower configuration
-        self.is_leader = self.drone_id == 1  # Drone 1 is the leader
-        self.wander_angle = 0.0  # Leader's exploration direction
-        self.wander_change_rate = 0.3  # How fast the direction changes
+        # リーダー機用の設定
+        self.is_leader = self.drone_id == 1
+        self.wander_angle = 0.0
+        self.leader_altitude_time = 0.0
 
-    def send_drone_state(self):
-        """Send current drone state to other drones"""
-        if self.emitter is None:
-            return
-
-        current_time = self.robot.getTime()
-
-        if current_time - self.last_send_time < self.send_interval:
-            return
-
-        # Get current position and velocity
-        position = self.gps.getValues()
-
-        # Create message with position, velocity, and flight state
-        message = {
-            "drone_id": self.drone_id,
-            "time": current_time,
-            "x": position[0],
-            "y": position[1],
-            "z": position[2],
-            "vx": self.current_velocity[0],
-            "vy": self.current_velocity[1],
-            "flight_mode": self.flight_mode,
-            "status": "active",
-        }
-
-        # Send as JSON string
-        try:
-            message_str = json.dumps(message)
-            self.emitter.send(message_str)
-            self.last_send_time = current_time
-        except Exception as e:
-            print(f"Drone {self.drone_id}: Send error: {e}")
-
-    def receive_neighbor_data(self):
-        """Receive and process data from other drones"""
-        if self.receiver is None:
-            return
-
-        current_time = self.robot.getTime()
-
-        while self.receiver.getQueueLength() > 0:
-            try:
-                message_str = self.receiver.getString()
-                message = json.loads(message_str)
-                sender_id = message["drone_id"]
-
-                # Ignore messages from self
-                if sender_id != self.drone_id:
-                    # Add timestamp for timeout checking
-                    message["received_time"] = current_time
-                    self.neighbors[sender_id] = message
-
-            except json.JSONDecodeError as e:
-                print(f"Drone {self.drone_id}: JSON decode error: {e}")
-            except Exception as e:
-                print(f"Drone {self.drone_id}: Receive error: {e}")
-
-            self.receiver.nextPacket()
-
-        # Remove outdated neighbor data
-        expired_neighbors = []
-        for neighbor_id, neighbor_data in self.neighbors.items():
-            if current_time - neighbor_data.get("received_time", 0) > self.neighbor_timeout:
-                expired_neighbors.append(neighbor_id)
-
-        for neighbor_id in expired_neighbors:
-            del self.neighbors[neighbor_id]
-
-    def calculate_velocity_from_gps(self, dt):
-        """Calculate current velocity from GPS readings"""
-        if dt <= 0:
-            return
-
-        current_x_global = self.gps.getValues()[0]
-        current_y_global = self.gps.getValues()[1]
-
-        # Skip velocity calculation on first frame
-        if self.past_x_global == 0.0 and self.past_y_global == 0.0:
-            self.past_x_global = current_x_global
-            self.past_y_global = current_y_global
-            return
-
-        # Calculate global velocity
-        vx_global = (current_x_global - self.past_x_global) / dt
-        vy_global = (current_y_global - self.past_y_global) / dt
-
-        # Convert to body frame
-        current_yaw = self.imu.getRollPitchYaw()[2]
-        cos_yaw = np.cos(current_yaw)
-        sin_yaw = np.sin(current_yaw)
-
-        v_x = vx_global * cos_yaw + vy_global * sin_yaw
-        v_y = -vx_global * sin_yaw + vy_global * cos_yaw
-
-        # Apply low-pass filter to smooth velocity
-        raw_velocity = np.array([v_x, v_y])
-        self.filtered_velocity = (
-            self.velocity_filter_alpha * raw_velocity + (1 - self.velocity_filter_alpha) * self.filtered_velocity
-        )
-
-        # Limit velocity to prevent extreme values
-        velocity_magnitude = np.linalg.norm(self.filtered_velocity)
-        if velocity_magnitude > 2.0:  # Max 2 m/s
-            self.filtered_velocity = (self.filtered_velocity / velocity_magnitude) * 2.0
-
-        self.current_velocity = self.filtered_velocity
-
-        # Update past values
-        self.past_x_global = current_x_global
-        self.past_y_global = current_y_global
-
-    def get_boid_velocity(self):
-        """Calculate desired velocity using boid algorithm"""
-        if not self.neighbors:
-            # No neighbors, maintain gentle hover
-            return np.array([0.0, 0.0])
-
-        # Prepare current state
-        position = self.gps.getValues()
-        neighbors_list = list(self.neighbors.values())
-
-        # Filter neighbors by distance (only consider nearby drones)
-        nearby_neighbors = self.boid_algorithm.filter_neighbors_by_distance(
-            position, neighbors_list, self.boid_algorithm.cohesion_distance
-        )
-
-        if not nearby_neighbors:
-            return np.array([0.0, 0.0])
-
-        # Calculate boid velocity
-        desired_velocity = self.boid_algorithm.calculate_boid_velocity(
-            position, self.current_velocity, nearby_neighbors
-        )
-
-        return desired_velocity
-
-    def update_flight_mode(self):
-        """Update flight mode based on current state"""
-        altitude = self.gps.getValues()[2]
-
-        if self.flight_mode == "takeoff":
-            if altitude >= HOVER_ALTITUDE - 0.1:
-                self.flight_mode = "hovering"
-                print(f"Drone {self.drone_id}: Takeoff complete, switching to hovering")
-
-        elif self.flight_mode == "hovering":
-            # Wait a bit before starting flocking to let all drones reach altitude
-            if self.robot.getTime() > 5.0 and len(self.neighbors) > 0:
-                self.flight_mode = "flocking"
-                print(f"Drone {self.drone_id}: Starting flocking behavior")
-
-    def get_leader_velocity(self):
-        """Generate exploration behavior for the leader drone"""
-        # Randomly change direction gradually
-        self.wander_angle += np.random.uniform(-self.wander_change_rate, self.wander_change_rate)
-
-        # Base speed for exploration
-        base_speed = 0.3
-
-        # Calculate velocity vector
-        velocity = np.array([np.cos(self.wander_angle) * base_speed, np.sin(self.wander_angle) * base_speed])
-
-        # Boundary avoidance - keep within field limits
-        position = self.gps.getValues()
-        boundary_limit = 15.0
-
-        # Soft boundary repulsion
-        if abs(position[0]) > boundary_limit:
-            velocity[0] -= np.sign(position[0]) * 0.2
-        if abs(position[1]) > boundary_limit:
-            velocity[1] -= np.sign(position[1]) * 0.2
-
-        return velocity
-
-    def get_desired_velocity(self):
-        """Get desired velocity based on current flight mode"""
-        if self.flight_mode == "takeoff" or self.flight_mode == "hovering":
-            # Simple hover in place
-            return np.array([0.0, 0.0])
-
-        elif self.flight_mode == "flocking":
-            if self.is_leader:
-                # Leader explores randomly
-                return self.get_leader_velocity()
-            else:
-                # Followers use boid algorithm
-                return self.get_boid_velocity()
-
-        return np.array([0.0, 0.0])
+    def _init_motors(self):
+        motors = []
+        for name in ["m1_motor", "m2_motor", "m3_motor", "m4_motor"]:
+            motor = self.robot.getDevice(name)
+            motor.setPosition(float("inf"))
+            # m1, m3は逆回転、m2, m4は正回転
+            velocity_sign = 1 if "m2" in name or "m4" in name else -1
+            motor.setVelocity(velocity_sign)
+            motors.append(motor)
+        return motors
 
     def run(self):
-        """Main control loop"""
-        # Wait for sensors to initialize
-        init_steps = 0
-        while init_steps < 10 and self.robot.step(TIME_STEP) != -1:
-            init_steps += 1
-
-        # Initialize GPS readings after sensors are ready
-        self.past_x_global = self.gps.getValues()[0]
-        self.past_y_global = self.gps.getValues()[1]
+        """メイン制御ループ"""
+        # センサーが安定するまで待機
+        while self.robot.step(TIME_STEP) != -1 and self.robot.getTime() < 0.5:
+            pass
+        self.past_position = self.gps.getValues()
         self.past_time = self.robot.getTime()
 
         while self.robot.step(TIME_STEP) != -1:
             dt = self.robot.getTime() - self.past_time
-
             if dt <= 0:
-                self.past_time = self.robot.getTime()
-                continue  # Skip if no time has passed
-
-            # Update velocity calculation
-            self.calculate_velocity_from_gps(dt)
-
-            # Communication
-            self.send_drone_state()
-            self.receive_neighbor_data()
-
-            # Update flight mode
-            self.update_flight_mode()
-
-            # Get sensor readings with validation
-            imu_values = self.imu.getRollPitchYaw()
-            gyro_values = self.gyro.getValues()
-            gps_values = self.gps.getValues()
-
-            # Check for valid sensor readings
-            if any(np.isnan(imu_values)) or any(np.isnan(gyro_values)) or any(np.isnan(gps_values)):
-                self.past_time = self.robot.getTime()
                 continue
 
-            roll = imu_values[0]
-            pitch = imu_values[1]
-            yaw_rate = gyro_values[2]
-            altitude = gps_values[2]
+            # --- 状態更新フェーズ ---
+            current_pos = np.array(self.gps.getValues())
+            self._update_velocity(current_pos, dt)
+            self._update_flight_mode(current_pos[2])
 
-            # Get desired velocity from current flight mode
-            desired_velocity = self.get_desired_velocity()
+            # --- 通信フェーズ ---
+            self._send_state(current_pos)
+            self._receive_state()
 
-            # Safety check: limit extreme attitudes
-            max_attitude = 0.5  # radians (~28 degrees)
-            if abs(roll) > max_attitude or abs(pitch) > max_attitude:
-                print(f"Drone {self.drone_id}: WARNING - Extreme attitude detected! Roll={roll:.2f}, Pitch={pitch:.2f}")
-                # Emergency: reduce desired velocity
-                desired_velocity = desired_velocity * 0.3
+            # --- 目標値計算フェーズ ---
+            desired_vx, desired_vy = 0, 0
 
-            # Apply acceleration limiting for smoother changes
-            velocity_change = desired_velocity - self.last_desired_velocity
-            max_change = self.max_acceleration * dt
+            if self.flight_mode == "flocking":
+                if self.is_leader:
+                    # リーダーはXY方向の探索と、Z方向の滑らかな高度目標を生成
+                    desired_vx, desired_vy = self._get_leader_xy_velocity()
+                    self.desired_altitude = self._get_leader_target_altitude()
+                else:
+                    # フォロワーはBoidsに従う
+                    boid_vel = self.boid_algorithm.calculate_boid_velocity(
+                        current_pos, self.current_velocity, list(self.neighbors.values()), self.is_leader
+                    )
+                    desired_vx, desired_vy = boid_vel[0], boid_vel[1]
 
-            if np.linalg.norm(velocity_change) > max_change:
-                velocity_change = (velocity_change / np.linalg.norm(velocity_change)) * max_change
-                desired_velocity = self.last_desired_velocity + velocity_change
+                    # ★重要: 垂直速度(vz)を目標高度への穏やかな補正として使用する
+                    altitude_correction = boid_vel[2] * dt * 0.5  # 補正の影響を緩やかにする
+                    self.desired_altitude += np.clip(altitude_correction, -0.05, 0.05)
 
-            self.last_desired_velocity = desired_velocity
+            # 安全のため、目標高度を範囲内に収める
+            self.desired_altitude = np.clip(self.desired_altitude, MINIMUM_ALTITUDE, MAXIMUM_ALTITUDE)
 
-            # Use PID controller to convert desired velocity to motor commands
+            # --- 制御フェーズ ---
+            roll, pitch, _ = self.imu.getRollPitchYaw()
+            yaw_rate = self.gyro.getValues()[2]
+
+            # PIDコントローラーでモーター出力を計算
             motor_power = self.pid_controller.pid(
                 dt,
-                desired_velocity[0],  # desired_vx
-                desired_velocity[1],  # desired_vy
-                0,  # desired_yaw_rate
-                HOVER_ALTITUDE,  # desired_altitude
+                np.clip(desired_vx, -1.0, 1.0),  # 安全対策
+                np.clip(desired_vy, -1.0, 1.0),  # 安全対策
+                0,  # Yaw rate
+                self.desired_altitude,
                 roll,
                 pitch,
                 yaw_rate,
-                altitude,
+                current_pos[2],  # actual altitude
                 self.current_velocity[0],  # actual_vx
                 self.current_velocity[1],  # actual_vy
             )
 
-            # Check for NaN before applying motor commands
-            if any(np.isnan(motor_power)):
-                # Use safe default values
-                motor_power = [0, 0, 0, 0]
+            # モーターへ指令
+            # m1,m3は-、m2,m4は+の出力
+            self.motors[0].setVelocity(-motor_power[0])
+            self.motors[1].setVelocity(motor_power[1])
+            self.motors[2].setVelocity(-motor_power[2])
+            self.motors[3].setVelocity(motor_power[3])
 
-            # Apply motor commands
-            self.m1_motor.setVelocity(-motor_power[0])
-            self.m2_motor.setVelocity(motor_power[1])
-            self.m3_motor.setVelocity(-motor_power[2])
-            self.m4_motor.setVelocity(motor_power[3])
-
-            # Debug output every 2 seconds
-            if int(self.robot.getTime()) % 2 == 0 and int(self.robot.getTime() * 10) % 10 == 0:
-                position = self.gps.getValues()
-                print(
-                    f"Drone {self.drone_id}: Mode={self.flight_mode}, Pos=({position[0]:.2f},{position[1]:.2f},{position[2]:.2f}), "
-                    f"Vel=({self.current_velocity[0]:.2f},{self.current_velocity[1]:.2f}), Neighbors={len(self.neighbors)}"
-                )
-
+            # 状態更新
             self.past_time = self.robot.getTime()
+            self.past_position = current_pos
+
+    def _update_velocity(self, current_pos, dt):
+        # 3D速度を計算
+        self.current_velocity = (current_pos - self.past_position) / dt
+
+    def _update_flight_mode(self, altitude):
+        if self.flight_mode == "takeoff" and altitude >= INITIAL_HOVER_ALTITUDE - 0.1:
+            self.flight_mode = "flocking"
+            print(f"Drone {self.drone_id}: Takeoff complete. Switching to 3D Flocking.")
+
+    def _send_state(self, pos):
+        if self.robot.getTime() - self.last_send_time < 0.1:
+            return
+        message = {
+            "drone_id": self.drone_id,
+            "x": pos[0],
+            "y": pos[1],
+            "z": pos[2],
+            "vx": self.current_velocity[0],
+            "vy": self.current_velocity[1],
+            "vz": self.current_velocity[2],
+        }
+        if self.emitter:
+            self.emitter.send(json.dumps(message))
+            self.last_send_time = self.robot.getTime()
+
+    def _receive_state(self):
+        if not self.receiver:
+            return
+        while self.receiver.getQueueLength() > 0:
+            try:
+                data = json.loads(self.receiver.getString())
+                if data["drone_id"] != self.drone_id:
+                    data["received_time"] = self.robot.getTime()
+                    self.neighbors[data["drone_id"]] = data
+            except (json.JSONDecodeError, KeyError):
+                pass
+            self.receiver.nextPacket()
+        # タイムアウトした隣人を削除
+        now = self.robot.getTime()
+        self.neighbors = {k: v for k, v in self.neighbors.items() if now - v.get("received_time", 0) < 1.0}
+
+    def _get_leader_xy_velocity(self):
+        """リーダーのXY平面上の探索速度を計算"""
+        self.wander_angle += np.random.uniform(-0.4, 0.4)  # 探索方向をランダムに変更
+        speed = 0.3
+        vx = np.cos(self.wander_angle) * speed
+        vy = np.sin(self.wander_angle) * speed
+        return vx, vy
+
+    def _get_leader_target_altitude(self):
+        """リーダーの目標高度をサイン波で滑らかに計算"""
+        self.leader_altitude_time += TIME_STEP / 1000.0
+        amplitude = (MAXIMUM_ALTITUDE - MINIMUM_ALTITUDE) / 2
+        mid_point = (MAXIMUM_ALTITUDE + MINIMUM_ALTITUDE) / 2
+        # 周期の異なるサイン波を合成して、より複雑な動きにする
+        alt1 = amplitude * np.sin(self.leader_altitude_time * 0.2)
+        alt2 = amplitude * np.cos(self.leader_altitude_time * 0.35)
+        return mid_point + (alt1 + alt2) / 2
 
 
 if __name__ == "__main__":

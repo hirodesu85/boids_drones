@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Boid Algorithm Implementation for Drone Flocking
+Boid Algorithm Implementation for Drone Flocking (3D Version)
 
-This module implements the classic boid algorithm with three main rules:
-1. Separation: Avoid crowding neighbors
-2. Alignment: Steer towards the average heading of neighbors
-3. Cohesion: Steer towards the average position of neighbors
+This module implements the classic boid algorithm in 3D space.
 """
 
 import numpy as np
@@ -14,267 +11,76 @@ import math
 
 class BoidAlgorithm:
     def __init__(self):
-        # Boid algorithm parameters (conservative values for stability)
-        self.separation_distance = 1.5  # Minimum distance to maintain from other drones
-        self.alignment_distance = 3.0  # Distance to consider for alignment
-        self.cohesion_distance = 4.0  # Distance to consider for cohesion
+        # 3D空間用に調整したBoidパラメータ
+        self.separation_distance = 1.8
+        self.alignment_distance = 3.5
+        self.cohesion_distance = 4.5
+        self.separation_weight = 1.6
+        self.alignment_weight = 1.0
+        self.cohesion_weight = 0.8
+        self.leader_weight = 0.5
 
-        # Weights for combining the three forces
-        self.separation_weight = 1.5  # Reduced for smoother behavior
-        self.alignment_weight = 1.0  # Medium priority for formation
-        self.cohesion_weight = 0.8  # Lower priority for grouping
-
-        # Speed limits for stability
-        self.max_speed = 0.3  # Reduced from 0.5 for better stability
-        self.min_speed = 0.1  # Increased for better follower response
+        # 速度制限
+        self.max_speed = 0.5
+        self.min_speed = 0.1
 
     def calculate_separation(self, my_position, neighbors):
-        """
-        Calculate separation force to avoid crowding neighbors
-
-        Args:
-            my_position: [x, y, z] current position
-            neighbors: List of neighbor data [{id, x, y, z, vx, vy, vz}, ...]
-
-        Returns:
-            separation_force: [vx, vy] desired velocity for separation
-        """
-        separation_force = np.array([0.0, 0.0])
-
+        """3D空間での分離ルールの計算"""
+        force = np.zeros(3)
         for neighbor in neighbors:
-            neighbor_pos = np.array([neighbor["x"], neighbor["y"]])
-            my_pos = np.array([my_position[0], my_position[1]])
-
-            # Calculate distance (only consider X-Y plane for now)
-            distance = np.linalg.norm(neighbor_pos - my_pos)
-
-            if 0 < distance < self.separation_distance:
-                # Calculate direction away from neighbor
+            neighbor_pos = np.array([neighbor["x"], neighbor["y"], neighbor["z"]])
+            my_pos = np.array(my_position)
+            dist = np.linalg.norm(neighbor_pos - my_pos)
+            if 0 < dist < self.separation_distance:
                 diff = my_pos - neighbor_pos
-                if distance > 0:
-                    diff = diff / distance  # Normalize
-
-                # Stronger force when closer
-                force_magnitude = (self.separation_distance - distance) / self.separation_distance
-                separation_force += diff * force_magnitude
-
-        return separation_force
+                force += diff / (dist + 1e-6)  # 距離が近いほど強く反発
+        return force
 
     def calculate_alignment(self, my_velocity, neighbors):
-        """
-        Calculate alignment force to match neighbors' average velocity
-
-        Args:
-            my_velocity: [vx, vy] current velocity
-            neighbors: List of neighbor data
-
-        Returns:
-            alignment_force: [vx, vy] desired velocity for alignment
-        """
+        """3D空間での整列ルールの計算"""
         if not neighbors:
-            return np.array([0.0, 0.0])
-
-        avg_velocity = np.array([0.0, 0.0])
-        count = 0
-
-        for neighbor in neighbors:
-            neighbor_vel = np.array([neighbor.get("vx", 0), neighbor.get("vy", 0)])
-            neighbor_pos = np.array([neighbor["x"], neighbor["y"]])
-            my_pos = np.array([my_velocity[0], my_velocity[1]])  # This should be position, fixing below
-
-            # Only consider neighbors within alignment distance
-            # Note: We need position for this calculation, will fix in main controller
-            avg_velocity += neighbor_vel
-            count += 1
-
-        if count > 0:
-            avg_velocity /= count
-            # Return desired velocity change, not absolute velocity
-            alignment_force = avg_velocity - np.array([my_velocity[0], my_velocity[1]])
-            return alignment_force
-
-        return np.array([0.0, 0.0])
+            return np.zeros(3)
+        avg_velocity = np.mean([np.array([n.get("vx", 0), n.get("vy", 0), n.get("vz", 0)]) for n in neighbors], axis=0)
+        return avg_velocity - np.array(my_velocity)
 
     def calculate_cohesion(self, my_position, neighbors):
-        """
-        Calculate cohesion force to move towards center of neighbors
-
-        Args:
-            my_position: [x, y, z] current position
-            neighbors: List of neighbor data
-
-        Returns:
-            cohesion_force: [vx, vy] desired velocity for cohesion
-        """
+        """3D空間での結合ルールの計算"""
         if not neighbors:
-            return np.array([0.0, 0.0])
-
-        center_of_mass = np.array([0.0, 0.0])
-        count = 0
-
-        for neighbor in neighbors:
-            neighbor_pos = np.array([neighbor["x"], neighbor["y"]])
-            my_pos = np.array([my_position[0], my_position[1]])
-
-            # Calculate distance
-            distance = np.linalg.norm(neighbor_pos - my_pos)
-
-            if distance < self.cohesion_distance:
-                center_of_mass += neighbor_pos
-                count += 1
-
-        if count > 0:
-            center_of_mass /= count
-            my_pos = np.array([my_position[0], my_position[1]])
-
-            # Calculate desired direction towards center
-            direction = center_of_mass - my_pos
-            distance = np.linalg.norm(direction)
-
-            if distance > 0:
-                # Normalize and scale by distance
-                direction = direction / distance
-                force_magnitude = min(distance * 0.3, 0.5)  # Scale factor
-                return direction * force_magnitude
-
-        return np.array([0.0, 0.0])
-
-    def combine_forces(self, separation, alignment, cohesion):
-        """
-        Combine the three boid forces with appropriate weights
-
-        Args:
-            separation: [vx, vy] separation force
-            alignment: [vx, vy] alignment force
-            cohesion: [vx, vy] cohesion force
-
-        Returns:
-            combined_force: [vx, vy] final desired velocity
-        """
-        # Apply weights to each force
-        total_force = (
-            separation * self.separation_weight + alignment * self.alignment_weight + cohesion * self.cohesion_weight
-        )
-
-        # Limit the magnitude of the resulting force
-        magnitude = np.linalg.norm(total_force)
-        if magnitude > self.max_speed:
-            total_force = (total_force / magnitude) * self.max_speed
-        elif magnitude < self.min_speed and magnitude > 0:
-            total_force = (total_force / magnitude) * self.min_speed
-
-        return total_force
+            return np.zeros(3)
+        center_of_mass = np.mean([np.array([n["x"], n["y"], n["z"]]) for n in neighbors], axis=0)
+        my_pos = np.array(my_position)
+        return center_of_mass - my_pos
 
     def calculate_leader_attraction(self, my_position, neighbors):
-        """
-        Calculate attraction force towards the leader drone
-
-        Args:
-            my_position: [x, y, z] current position
-            neighbors: List of neighbor data
-
-        Returns:
-            leader_force: [vx, vy] attraction force towards leader
-        """
-        leader = None
-        for neighbor in neighbors:
-            if neighbor.get("drone_id") == 1:  # Find the leader (drone 1)
-                leader = neighbor
-                break
-
+        """リーダー機への追従力の計算"""
+        leader = next((n for n in neighbors if n.get("drone_id") == 1), None)
         if leader:
-            leader_pos = np.array([leader["x"], leader["y"]])
-            my_pos = np.array([my_position[0], my_position[1]])
+            leader_pos = np.array([leader["x"], leader["y"], leader["z"]])
+            my_pos = np.array(my_position)
+            return leader_pos - my_pos
+        return np.zeros(3)
 
-            # Direction to leader
-            direction = leader_pos - my_pos
-            distance = np.linalg.norm(direction)
+    def apply_speed_limit(self, velocity):
+        """速度制限を適用"""
+        speed = np.linalg.norm(velocity)
+        if speed > self.max_speed:
+            return (velocity / speed) * self.max_speed
+        if speed < self.min_speed:
+            return (velocity / speed) * self.min_speed
+        return velocity
 
-            if distance > 0:
-                direction = direction / distance
-                # Attraction force increases with distance, but caps at 0.3
-                force = direction * min(distance * 0.1, 0.3)
-                return force
-
-        return np.array([0.0, 0.0])
-
-    def combine_forces_with_leader(self, separation, alignment, cohesion, leader_attraction):
-        """
-        Combine the boid forces with leader attraction
-
-        Args:
-            separation: [vx, vy] separation force
-            alignment: [vx, vy] alignment force
-            cohesion: [vx, vy] cohesion force
-            leader_attraction: [vx, vy] leader attraction force
-
-        Returns:
-            combined_force: [vx, vy] final desired velocity
-        """
-        # Apply weights to each force
-        leader_weight = 0.5  # Weight for leader attraction
-        total_force = (
-            separation * self.separation_weight
-            + alignment * self.alignment_weight
-            + cohesion * self.cohesion_weight
-            + leader_attraction * leader_weight
-        )
-
-        # Limit the magnitude of the resulting force
-        magnitude = np.linalg.norm(total_force)
-        if magnitude > self.max_speed:
-            total_force = (total_force / magnitude) * self.max_speed
-        elif magnitude < self.min_speed and magnitude > 0:
-            total_force = (total_force / magnitude) * self.min_speed
-
-        return total_force
-
-    def calculate_boid_velocity(self, my_position, my_velocity, neighbors):
-        """
-        Main function to calculate desired velocity using boid algorithm
-
-        Args:
-            my_position: [x, y, z] current position
-            my_velocity: [vx, vy] current velocity
-            neighbors: List of neighbor data
-
-        Returns:
-            desired_velocity: [vx, vy] desired velocity for this timestep
-        """
-        # Calculate the three forces
+    def calculate_boid_velocity(self, my_position, my_velocity, neighbors, is_leader):
+        """Boidsアルゴリズムの3つのルールを統合して目標速度を計算"""
         separation = self.calculate_separation(my_position, neighbors)
         alignment = self.calculate_alignment(my_velocity, neighbors)
         cohesion = self.calculate_cohesion(my_position, neighbors)
 
-        # Calculate leader attraction for followers
-        leader_attraction = self.calculate_leader_attraction(my_position, neighbors)
+        total_force = (
+            separation * self.separation_weight + alignment * self.alignment_weight + cohesion * self.cohesion_weight
+        )
 
-        # Combine forces (including leader attraction)
-        desired_velocity = self.combine_forces_with_leader(separation, alignment, cohesion, leader_attraction)
+        if not is_leader:
+            leader_attraction = self.calculate_leader_attraction(my_position, neighbors)
+            total_force += leader_attraction * self.leader_weight
 
-        return desired_velocity
-
-    def filter_neighbors_by_distance(self, my_position, all_neighbors, max_distance):
-        """
-        Filter neighbors by distance to only consider nearby drones
-
-        Args:
-            my_position: [x, y, z] current position
-            all_neighbors: List of all neighbor data
-            max_distance: Maximum distance to consider
-
-        Returns:
-            filtered_neighbors: List of nearby neighbors
-        """
-        filtered = []
-        my_pos = np.array([my_position[0], my_position[1]])
-
-        for neighbor in all_neighbors:
-            neighbor_pos = np.array([neighbor["x"], neighbor["y"]])
-            distance = np.linalg.norm(neighbor_pos - my_pos)
-
-            if distance <= max_distance:
-                neighbor["distance"] = distance
-                filtered.append(neighbor)
-
-        return filtered
+        return self.apply_speed_limit(total_force)
